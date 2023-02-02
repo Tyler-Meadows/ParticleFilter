@@ -2,3 +2,6 @@ name = "ParticleFilter"
 uuid = "ea7143c2-1214-4eb8-9681-f5a2c1c48267"
 authors = ["Tyler Meadows <tam15@queensu.ca>"]
 version = "0.1.0"
+
+[deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
