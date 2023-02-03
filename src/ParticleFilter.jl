@@ -4,7 +4,6 @@
 This is the bones for a discrete-time particle filter that I built to infer the infection numbers based on wastewater surveillance data
 
 """
-
 module ParticleFilter
 
 # Required packages
@@ -14,19 +13,26 @@ export Particle, Filter
 export update!, average_particle
 
 #= Structures and Objects =#
-# Particle struct, holds weight, state and parameters.
+""" Particle struct, holds weight, state and parameters."""
+
 mutable struct Particle
     weight::Float64
     state::Vector{<:Real}
     pars::NamedTuple
 end
 
-# particle constructor
+""" Method for constructing particles"""
 function Particle(w,p::Particle)
     Particle(w,p.state,p.pars)
 end
 
-# ParticleFilter Struct
+""" Particle Filter Struct
+ * N - Number of particles
+ * particles - Vector of particles
+ * Measurements - Array of Measurements
+ * MeasurementModel - A function that takes a measurement and a particle and outputs a real number
+ * DynamicModel - An inplace function that mutates a particle
+"""
 mutable struct Filter
     N::Int64
     particles::Vector{Particle}
@@ -35,6 +41,7 @@ mutable struct Filter
     DynamicModel::Function
 end
 
+"""Determine the average particle from a particle filter"""
 function average_particle(p::Filter)
     sum_weights = [p.weight for p in p.particles] |> sum
     avg_state = ones(size(p.particles[1].state))
@@ -44,42 +51,48 @@ function average_particle(p::Filter)
     return Particle(1.0,avg_state,p.pars)
 end
 
+"""Return the particle with the highest weight"""
 max_weight(p::Filter) = Base.maximum([w.weight for w in p.particles])
 
+"""Push particles forward in time"""
 function propogate_sample!(p::Filter,sample,fn::Function)
     du = zero(sample.state)
     fn(du,sample.state,~,p.pars)
     sample.state += du
 end
 
+"""Push particles forward in time"""
 function propogate_sample!(p::Filter,sample::Particle,fn::Function)
     du = zero(sample.state)
     fn(du,sample.state,~,sample.pars)
     sample.state += du
 end
 
+"""Push particles forward in time"""
 function propogate_sample!(p::Filter,sample::Particle,fn::Function,t::Int64)
     du = zero(sample.state)
     fn(du,sample.state,t,sample.pars)
     sample.state += du
 end
 
+"""Calculate the likelihood using the measurement model"""
 function compute_likelihood(p::Filter,sample,measurement)
     likelihood(p.dist,measurement,sample.state[2])
 end
 
+""" Update the likelihood using the measurement model"""
 function update_likelihood!(p::Filter,sample::Particle,measurement)
     sample.weight = likelihood(p.dist,measurement,sample.state[2])
 end
 
 
-## Remove the lowest weighted 10% of particles
+"""Determine the weight that separates the particles into two groups"""
 function quant(p::Filter,q)
     tmp = [w.weight for w in p.particles]
     quantile(tmp,q)
 end
 
-#Remove particles with 0 weight, and those too far from the measurement
+"""Remove particles with 0 weight, and those too far from the measurement"""
 function percentile_sampling!(p::Filter,Virus;q=0.1)
     filter!(x -> x.weight ≠ 0.0, p.particles)
     filter!(x -> x.weight ≥ quant(p,q),p.particles)
@@ -93,6 +106,8 @@ function percentile_sampling!(p::Filter,Virus;q=0.1)
     end
 end
 
+
+"""Resample the particles"""
 function multinomial_sampling!(p::Filter)
     weights = [w.weight for w in p.particles]
     Q = cumsum(weights)
@@ -106,9 +121,11 @@ function multinomial_sampling!(p::Filter)
     p.particles .= new_samples
 end
 
+""""""
 needs_resampling(p::Filter,threshold) = max_weight(p) > threshold
 needs_resampling(p::Filter) = true
 
+"""Normalize the weights"""
 function normalize_weights!(p::Filter,Virus;verbose=false)
     sum_weights = [w.weight for w in p.particles] |> sum
     if sum_weights < 1e-10

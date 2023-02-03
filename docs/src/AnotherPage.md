@@ -1,8 +1,8 @@
-## The ParticleFilter Module
+# The ParticleFilter Module
 
- ```@docs
- ParticleFilter
- ```
+```@docs
+ParticleFilter
+```
 
 ## Module Index
 
@@ -10,6 +10,7 @@
 Modules = [ParticleFilter]
 Order   = [:constant, :type, :function, :macro]
 ```
+
 ## Detailed API
 
 ```@autodocs
