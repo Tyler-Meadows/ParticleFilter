@@ -1,9 +1,10 @@
 """
-ParticleFilter.jl
+    ParticleFilter.jl
 
-This is the bones for a discrete-time particle filter that I built to infer the infection numbers
-    based on wastewater surveillance data
+This is the bones for a discrete-time particle filter that I built to infer the infection numbers based on wastewater surveillance data
+
 """
+
 module ParticleFilter
 
 # Required packages
@@ -12,7 +13,7 @@ using Distributions
 export Particle, Filter
 export update!, average_particle
 
-##= Structures and Objects =##
+#= Structures and Objects =#
 # Particle struct, holds weight, state and parameters.
 mutable struct Particle
     weight::Float64
