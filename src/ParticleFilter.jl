@@ -1,3 +1,9 @@
+"""
+ParticleFilter.jl
+
+This is the bones for a discrete-time particle filter that I built to infer the infection numbers
+    based on wastewater surveillance data
+"""
 module ParticleFilter
 
 # Required packages
@@ -23,8 +29,9 @@ end
 mutable struct Filter
     N::Int64
     particles::Vector{Particle}
-    dist::Distribution
-    pars::NamedTuple
+    Measurements::Array
+    MeasurementModel::Function
+    DynamicModel::Function
 end
 
 function average_particle(p::Filter)
