@@ -12,7 +12,7 @@ makedocs(
 # Documenter can also automatically deploy documentation to gh-pages.
 # See "Hosting Documentation" and deploydocs() in the Documenter manual
 # for more information.
-=deploydocs(
+deploydocs(
     repo = "https://github.com/Tyler-Meadows/ParticleFilter.jl.git",
     devbranch = "main"
-)=#
+)
