@@ -13,6 +13,6 @@ makedocs(
 # See "Hosting Documentation" and deploydocs() in the Documenter manual
 # for more information.
 deploydocs(
-    repo = "https://github.com/Tyler-Meadows/ParticleFilter.jl.git",
+    repo = "https://github.com/Tyler-Meadows/ParticleFilter.jl",
     devbranch = "main"
 )
