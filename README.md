@@ -1,2 +1,2 @@
-![Build status (Github Actions)](https://github.com/Tyler-Meadows/ParticleFilter.jl/workflows/CI/badge.svg)](https://github.com/Tyler-Meadows/ParticleFilter.jl/actions)
+[![Build status (Github Actions)](https://github.com/Tyler-Meadows/ParticleFilter.jl/workflows/CI/badge.svg)](https://github.com/Tyler-Meadows/ParticleFilter.jl/actions)
 [![codecov.io](http://codecov.io/github/Tyler-Meadows/ParticleFilter.jl/coverage.svg?branch=main)](http://codecov.io/github/Tyler-Meadows/ParticleFilter.jl?branch=main)
