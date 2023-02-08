@@ -13,8 +13,10 @@ export Particle, Filter
 export update!, average_particle
 
 #= Structures and Objects =#
-""" Particle struct, holds weight, state and parameters."""
 
+""" Custom Type for particles
+Particle(weight::Float64,state::Vector{:<Real},pars::NamedTuple)
+"""
 mutable struct Particle
     weight::Float64
     state::Vector{<:Real}
@@ -27,21 +29,23 @@ function Particle(w,p::Particle)
 end
 
 """ Particle Filter Struct
- * N - Number of particles
+ * T - Time
  * particles - Vector of particles
  * Measurements - Array of Measurements
  * MeasurementModel - A function that takes a measurement and a particle and outputs a real number
  * DynamicModel - An inplace function that mutates a particle
 """
 mutable struct Filter
-    N::Int64
+    T::Real
     particles::Vector{Particle}
     Measurements::Array
     MeasurementModel::Function
     DynamicModel::Function
 end
 
-"""Determine the average particle from a particle filter"""
+"""
+average_particle(Particle_Filter)
+Determines the average particle from given particle filter"""
 function average_particle(p::Filter)
     sum_weights = [p.weight for p in p.particles] |> sum
     avg_state = ones(size(p.particles[1].state))
@@ -54,21 +58,24 @@ end
 """Return the particle with the highest weight"""
 max_weight(p::Filter) = Base.maximum([w.weight for w in p.particles])
 
-"""Push particles forward in time"""
+"""
+propogate_sample!(particle_filter,t)
+
+Uses the dynamic model to push particles forward one time step.
+"""
 function propogate_sample!(p::Filter,sample,fn::Function)
     du = zero(sample.state)
     fn(du,sample.state,~,p.pars)
     sample.state += du
 end
 
-"""Push particles forward in time"""
 function propogate_sample!(p::Filter,sample::Particle,fn::Function)
     du = zero(sample.state)
     fn(du,sample.state,~,sample.pars)
     sample.state += du
 end
 
-"""Push particles forward in time"""
+
 function propogate_sample!(p::Filter,sample::Particle,fn::Function,t::Int64)
     du = zero(sample.state)
     fn(du,sample.state,t,sample.pars)
@@ -80,19 +87,26 @@ function compute_likelihood(p::Filter,sample,measurement)
     likelihood(p.dist,measurement,sample.state[2])
 end
 
-""" Update the likelihood using the measurement model"""
 function update_likelihood!(p::Filter,sample::Particle,measurement)
     sample.weight = likelihood(p.dist,measurement,sample.state[2])
 end
 
 
-"""Determine the weight that separates the particles into two groups"""
+"""
+quant(particle_filter,$q\in(0,1)$)
+Determines the weight that separates the particles into two groups"""
 function quant(p::Filter,q)
     tmp = [w.weight for w in p.particles]
     quantile(tmp,q)
 end
 
-"""Remove particles with 0 weight, and those too far from the measurement"""
+"""
+    percentile_sampling(particle_filter,measurement;q = 0.1 $\in(0,1)$)
+
+resamples the particles based on the current measurement.
+Particles with a weight in the lowest q-th percentile are dropped
+and replaced by particles with the highest percentile.
+"""
 function percentile_sampling!(p::Filter,Virus;q=0.1)
     filter!(x -> x.weight ≠ 0.0, p.particles)
     filter!(x -> x.weight ≥ quant(p,q),p.particles)
