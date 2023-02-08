@@ -93,7 +93,7 @@ end
 
 
 """
-quant(particle_filter,q\in(0,1))
+quant(particle_filter,q::Float64)
 Determines the weight that separates the particles into two groups"""
 function quant(p::Filter,q)
     tmp = [w.weight for w in p.particles]
@@ -101,7 +101,7 @@ function quant(p::Filter,q)
 end
 
 """
-    percentile_sampling(particle_filter,measurement;q = 0.1 \in(0,1))
+    percentile_sampling(particle_filter,measurement;q::Float64)
 
 resamples the particles based on the current measurement.
 Particles with a weight in the lowest q-th percentile are dropped
