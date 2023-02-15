@@ -14,8 +14,9 @@ export update!, average_particle
 
 #= Structures and Objects =#
 
-""" Custom Type for particles
-Particle(weight::Float64,state::Vector{:<Real},pars::NamedTuple)
+"""
+    Particle(weight::Float64,state::Vector{:<Real},pars::NamedTuple)
+
 """
 mutable struct Particle
     weight::Float64
@@ -23,12 +24,9 @@ mutable struct Particle
     pars::NamedTuple
 end
 
-""" Method for constructing particles"""
-function Particle(w,p::Particle)
-    Particle(w,p.state,p.pars)
-end
 
-""" Particle Filter Struct
+""" 
+    Particle(T::Real,particles::Vector{Particle},Measurements::Array,MeasurementModel::Function,DynamicModel::Function)
  * T - Time
  * particles - Vector of particles
  * Measurements - Array of Measurements
@@ -44,7 +42,7 @@ mutable struct Filter
 end
 
 """
-average_particle(Particle_Filter)
+    average_particle(p::Filter)
 Determines the average particle from given particle filter"""
 function average_particle(p::Filter)
     sum_weights = [p.weight for p in p.particles] |> sum
@@ -52,48 +50,46 @@ function average_particle(p::Filter)
     for i in 1:length(avg_state)
         avg_state[i] = [w.weight/sum_weights * w.state[i] for w in p.particles] |> sum
     end
-    return Particle(1.0,avg_state,p.pars)
+    return Particle(1.0,avg_state,avg_pars(p))
 end
 
-"""Return the particle with the highest weight"""
+"""
+    avg_pars(p::Filter)
+Find the average of the parameters
+"""
+function avg_pars(p::Filter)
+    weights = [par.weight for par in p.particles]
+    values = sum(weights.*([values(p.pars)...] for p in p.particles))
+    keys = keys(p.particles[1].pars)
+    return (; zip(keys,values)...)
+end
+
+"""
+    max_weight(p::Filter)
+Return the particle with the highest weight"""
 max_weight(p::Filter) = Base.maximum([w.weight for w in p.particles])
 
 """
-propogate_sample!(particle_filter,t)
-
+    propogate_sample!(p::Filter,sample::Particle)
 Uses the dynamic model to push particles forward one time step.
 """
-function propogate_sample!(p::Filter,sample,fn::Function)
-    du = zero(sample.state)
-    fn(du,sample.state,~,p.pars)
-    sample.state += du
-end
-
 function propogate_sample!(p::Filter,sample::Particle,fn::Function)
     du = zero(sample.state)
-    fn(du,sample.state,~,sample.pars)
+    p.DynamicModel(du,sample.state,p.T,sample.pars)
     sample.state += du
 end
 
-
-function propogate_sample!(p::Filter,sample::Particle,fn::Function,t::Int64)
-    du = zero(sample.state)
-    fn(du,sample.state,t,sample.pars)
-    sample.state += du
+"""
+    compute_likelihood(p::filter,sample::particle)
+Calculate the likelihood using the measurement model"""
+function compute_likelihood(p::Filter,sample::Particle)
+    p.MeasurementModel(p.Measurements[p.T],sample)
 end
 
-"""Calculate the likelihood using the measurement model"""
-function compute_likelihood(p::Filter,sample,measurement)
-    likelihood(p.dist,measurement,sample.state[2])
-end
-
-function update_likelihood!(p::Filter,sample::Particle,measurement)
-    sample.weight = likelihood(p.dist,measurement,sample.state[2])
-end
 
 
 """
-quant(particle_filter,q::Float64)
+    quant(particle_filter,q::Float64)
 Determines the weight that separates the particles into two groups"""
 function quant(p::Filter,q)
     tmp = [w.weight for w in p.particles]
@@ -121,7 +117,12 @@ function percentile_sampling!(p::Filter,Virus;q=0.1)
 end
 
 
-"""Resample the particles"""
+"""
+    multinomial_sampling!(p::Filter)
+
+Resamples particles using a multinomial sampling procedure.
+If n is the number of particles, then this draws n samples from a multinomial distribution defined
+using the weights of the particles"""
 function multinomial_sampling!(p::Filter)
     weights = [w.weight for w in p.particles]
     Q = cumsum(weights)
@@ -135,16 +136,18 @@ function multinomial_sampling!(p::Filter)
     p.particles .= new_samples
 end
 
-""""""
+
 needs_resampling(p::Filter,threshold) = max_weight(p) > threshold
 needs_resampling(p::Filter) = true
 
-"""Normalize the weights"""
-function normalize_weights!(p::Filter,Virus;verbose=false)
+"""
+    normalize_weights(p::Filter)
+Normalize the weights"""
+function normalize_weights!(p::Filter;verbose=false)
     sum_weights = [w.weight for w in p.particles] |> sum
     if sum_weights < 1e-10
         verbose && print("sum of weights too low \n")
-        init_particles!(p,Virus)
+        init_particles!(p)
     else
         for w in p.particles
             w.weight /= sum_weights
@@ -152,13 +155,13 @@ function normalize_weights!(p::Filter,Virus;verbose=false)
     end
 end
 
-
-function update!(p::Filter,
-    measurement,
-    fn::Function)
+""" 
+    update!(p::Filter)
+"""
+function update!(p::Filter)
     Threads.@threads for part in p.particles
-        propogate_sample!(p,part,fn)
-        update_likelihood!(p,part,measurement)
+        propogate_sample!(p,part)
+        update_likelihood!(p,part)
     end
     nothing
 end
@@ -171,24 +174,5 @@ function update!(p::Filter,
     end
     nothing
 end
-
-function update!(p::Filter,
-        measurement::Missing,
-        fn::Function)
-    Threads.@threads for part in p.particles
-        propogate_sample!(p,part,fn)
-    end
-    nothing
-end
-
-function update!(p::Filter,
-    measurement::Missing,
-    fn::Function,t)
-    Threads.@threads for part in p.particles
-        propogate_sample!(p,part,fn,t)
-    end
-    nothing
-end
-
 
 end # module ParticleFilter
