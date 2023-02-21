@@ -5,12 +5,12 @@ This is the bones for a discrete-time particle filter that I built to infer the 
 
 """
 module ParticleFilter
+export Particle, Filter
+export update!, average_particle
 
 # Required packages
 using Distributions
-
-export Particle, Filter
-export update!, average_particle
+using DataFrames
 
 #= Structures and Objects =#
 
@@ -24,19 +24,27 @@ mutable struct Particle
     pars::NamedTuple
 end
 
+"""
+    Particle(w::Float64,p::Particle)
+Construct a particle using a new weight and an old particle
+"""
+function Particle(w::Float64,p::Particle)
+    Particle(w,p.state,p.pars)
+end
+
 
 """ 
-    Particle(T::Real,particles::Vector{Particle},Measurements::Array,MeasurementModel::Function,DynamicModel::Function)
+    Particle(T::Real,particles::Vector{Particle},Measurements::DataFrame,MeasurementModel::Function,DynamicModel::Function)
  * T - Time
  * particles - Vector of particles
- * Measurements - Array of Measurements
- * MeasurementModel - A function that takes a measurement and a particle and outputs a real number
+ * Measurements - DataFrame of measurements
+ * MeasurementModel - A function that takes a DataFrameRow and a particle and outputs a real number
  * DynamicModel - An inplace function that mutates a particle
 """
 mutable struct Filter
     T::Real
     particles::Vector{Particle}
-    Measurements::Array
+    Measurements::DataFrame
     MeasurementModel::Function
     DynamicModel::Function
 end
@@ -59,9 +67,9 @@ Find the average of the parameters
 """
 function avg_pars(p::Filter)
     weights = [par.weight for par in p.particles]
-    values = sum(weights.*([values(p.pars)...] for p in p.particles))
-    keys = keys(p.particles[1].pars)
-    return (; zip(keys,values)...)
+    vals = sum(weights.*([values(p.pars)...] for p in p.particles))
+    🔑 = keys(p.particles[1].pars)
+    return (; zip(🔑,vals)...)
 end
 
 """
@@ -73,20 +81,20 @@ max_weight(p::Filter) = Base.maximum([w.weight for w in p.particles])
     propogate_sample!(p::Filter,sample::Particle)
 Uses the dynamic model to push particles forward one time step.
 """
-function propogate_sample!(p::Filter,sample::Particle,fn::Function)
+function propogate_sample!(p::Filter,sample::Particle)
     du = zero(sample.state)
     p.DynamicModel(du,sample.state,p.T,sample.pars)
     sample.state += du
 end
 
 """
-    compute_likelihood(p::filter,sample::particle)
-Calculate the likelihood using the measurement model"""
-function compute_likelihood(p::Filter,sample::Particle)
-    p.MeasurementModel(p.Measurements[p.T],sample)
+    update_likelihood!(p::filter,sample::particle)
+Changes the weight of the particle to its likelihood according to the measurement model"""
+function update_likelihood!(p::Filter,sample::Particle)
+    sample.weight = p.MeasurementModel(p.Measurements[p.T,:],sample)
 end
 
-
+ 
 
 """
     quant(particle_filter,q::Float64)
@@ -124,14 +132,15 @@ Resamples particles using a multinomial sampling procedure.
 If n is the number of particles, then this draws n samples from a multinomial distribution defined
 using the weights of the particles"""
 function multinomial_sampling!(p::Filter)
+    N_particles = length(p.particles)
     weights = [w.weight for w in p.particles]
     Q = cumsum(weights)
     new_samples = []
-    for n in 1:p.N
+    for n in 1:N_particles
         u = Uniform(0.0,1.0) |> rand
         m = findfirst(x->x>u,Q)
         isnothing(m) && (m=length(weights))
-        push!(new_samples, Particle(1.0/p.N,p.particles[m]))
+        push!(new_samples, Particle(1.0/N_particles,p.particles[m]))
     end
     p.particles .= new_samples
 end
@@ -146,7 +155,7 @@ Normalize the weights"""
 function normalize_weights!(p::Filter;verbose=false)
     sum_weights = [w.weight for w in p.particles] |> sum
     if sum_weights < 1e-10
-        verbose && print("sum of weights too low \n")
+        print("sum of weights too low \n")
         init_particles!(p)
     else
         for w in p.particles
@@ -157,21 +166,20 @@ end
 
 """ 
     update!(p::Filter)
+
+Move the particle filter forward one time-step. The particles are propogated using
+the dynamic model, and their weights updated using the measurement model. The particle 
+weights are normalized so that they sum to 1, and then particles are resampled from a multinomial
+distribution.
 """
 function update!(p::Filter)
     Threads.@threads for part in p.particles
         propogate_sample!(p,part)
         update_likelihood!(p,part)
     end
-    nothing
-end
-function update!(p::Filter,
-    measurement,
-    fn::Function,t)
-    Threads.@threads for part in p.particles
-        propogate_sample!(p,part,fn,t)
-        update_likelihood!(p,part,measurement)
-    end
+    normalize_weights!(p)
+    needs_resampling(p) && multinomial_sampling!(p)
+    p.T +=1
     nothing
 end
 
