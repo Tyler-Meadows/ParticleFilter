@@ -139,11 +139,32 @@ function multinomial_sampling!(p::Filter)
     for n in 1:N_particles
         u = Uniform(0.0,1.0) |> rand
         m = findfirst(x->x>u,Q)
-        isnothing(m) && (m=length(weights))
-        push!(new_samples, Particle(1.0/N_particles,p.particles[m]))
+        isnothing(m) && (m=N_particles)
+        push!(new_samples, p.particles[m])
     end
     p.particles .= new_samples
 end
+
+""" systematic_resampling!(p::Filter)
+
+Applies the systematic resampling procedure described in the
+POMP documentation by Aaron King et al. 
+"""
+function systematic_resampling!(p::Filter)
+    N_particles = length(p.particles)
+    weights = [w.weight for w in p.particles]
+    Q = cumsum(weights)
+    new_samples = []
+    U1 = Uniform(0,1/N_particles) |> rand
+    U = U1+(0:(1/N_particles):1)
+    for Uj in U
+        m = findfirst(Uj.<Q)
+        push!(new_samples,p.particles[m])
+    end
+    p.particles .= new_samples
+end
+
+
 
 
 needs_resampling(p::Filter,threshold) = max_weight(p) > threshold
@@ -154,14 +175,14 @@ needs_resampling(p::Filter) = true
 Normalize the weights"""
 function normalize_weights!(p::Filter;verbose=false)
     sum_weights = [w.weight for w in p.particles] |> sum
-    if sum_weights < 1e-10
-        print("sum of weights too low \n")
-        init_particles!(p)
-    else
+#    if sum_weights < 1e-10
+#        print("sum of weights too low \n")
+#        init_filter!(p)
+#    else
         for w in p.particles
             w.weight /= sum_weights
         end
-    end
+#    end
 end
 
 """ 
