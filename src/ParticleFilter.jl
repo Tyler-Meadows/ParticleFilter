@@ -22,6 +22,7 @@ mutable struct Particle
     weight::Float64
     state::Vector{<:Real}
     pars::NamedTuple
+    stats_pars::NamedTuple
 end
 
 """
@@ -29,12 +30,15 @@ end
 Construct a particle using a new weight and an old particle
 """
 function Particle(w::Float64,p::Particle)
-    Particle(w,p.state,p.pars)
+    Particle(w,p.state,p.pars,p.stats_pars)
 end
 
+function Particle(p::Particle)
+    Particle(p.weight,p.state,p.pars,p.stats_pars)
+end
 
 """ 
-    Particle(T::Real,particles::Vector{Particle},Measurements::DataFrame,MeasurementModel::Function,DynamicModel::Function)
+    Filter(T::Real,particles::Vector{Particle},Measurements::DataFrame,MeasurementModel::Function,DynamicModel::Function)
  * T - Time
  * particles - Vector of particles
  * Measurements - DataFrame of measurements
@@ -50,6 +54,18 @@ mutable struct Filter
 end
 
 """
+    FilterHistory(T::Vector{Real},particles::Vector{Vector{Particle}})
+"""
+mutable struct FilterHistory
+    T::Vector{Real}
+    particles::Vector{Vector{Real}}
+end
+
+function FilterHistory(p::Filter)
+    FilterHistory([p.T],[p.particles])
+end
+
+"""
     average_particle(p::Filter)
 Determines the average particle from given particle filter"""
 function average_particle(p::Filter)
@@ -58,7 +74,7 @@ function average_particle(p::Filter)
     for i in 1:length(avg_state)
         avg_state[i] = [w.weight/sum_weights * w.state[i] for w in p.particles] |> sum
     end
-    return Particle(1.0,avg_state,avg_pars(p))
+    return Particle(1.0,avg_state,avg_pars(p),p.particles[1].stats_pars)
 end
 
 """
@@ -134,13 +150,14 @@ using the weights of the particles"""
 function multinomial_sampling!(p::Filter)
     N_particles = length(p.particles)
     weights = [w.weight for w in p.particles]
+    weights = weights./(sum(weights))
     Q = cumsum(weights)
     new_samples = []
     for n in 1:N_particles
         u = Uniform(0.0,1.0) |> rand
         m = findfirst(x->x>u,Q)
         isnothing(m) && (m=N_particles)
-        push!(new_samples, p.particles[m])
+        push!(new_samples, Particle(p.particles[m]))
     end
     p.particles .= new_samples
 end
@@ -153,13 +170,15 @@ POMP documentation by Aaron King et al.
 function systematic_resampling!(p::Filter)
     N_particles = length(p.particles)
     weights = [w.weight for w in p.particles]
+    weights = weights./(sum(weights))
     Q = cumsum(weights)
     new_samples = []
     U1 = Uniform(0,1/N_particles) |> rand
-    U = U1+(0:(1/N_particles):1)
+    U = U1.+0:(1/N_particles):1
     for Uj in U
         m = findfirst(Uj.<Q)
-        push!(new_samples,p.particles[m])
+        isnothing(m) && (m =N_particles) 
+        push!(new_samples,Particle(p.particles[m]))
     end
     p.particles .= new_samples
 end
@@ -167,22 +186,17 @@ end
 
 
 
-needs_resampling(p::Filter,threshold) = max_weight(p) > threshold
+needs_resampling(p::Filter,threshold) = max_weight(p) < threshold
 needs_resampling(p::Filter) = true
 
 """
     normalize_weights(p::Filter)
 Normalize the weights"""
-function normalize_weights!(p::Filter;verbose=false)
+function normalize_weights!(p::Filter)
     sum_weights = [w.weight for w in p.particles] |> sum
-#    if sum_weights < 1e-10
-#        print("sum of weights too low \n")
-#        init_filter!(p)
-#    else
         for w in p.particles
             w.weight /= sum_weights
         end
-#    end
 end
 
 """ 
@@ -193,15 +207,21 @@ the dynamic model, and their weights updated using the measurement model. The pa
 weights are normalized so that they sum to 1, and then particles are resampled from a multinomial
 distribution.
 """
-function update!(p::Filter)
-    Threads.@threads for part in p.particles
+function update!(p::Filter;resample=systematic_resampling!)
+    @Threads.threads for part in p.particles
         propogate_sample!(p,part)
         update_likelihood!(p,part)
     end
     normalize_weights!(p)
-    needs_resampling(p) && multinomial_sampling!(p)
+    needs_resampling(p) && resample(p)
     p.T +=1
     nothing
 end
+
+function update_history!(History::FilterHistory,p::Filter)
+    push!(History.T,[p.T])
+    push!(History.particles,[p.particles])
+end
+
 
 end # module ParticleFilter
