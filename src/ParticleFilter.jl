@@ -7,7 +7,7 @@ This is the bones for a discrete-time particle filter that I built to infer the 
 module ParticleFilter
 export Particle, Filter
 export update!, average_particle
-
+export FilterHistory, run_filter!
 # Required packages
 using Distributions
 using DataFrames
@@ -58,7 +58,7 @@ end
 """
 mutable struct FilterHistory
     T::Vector{Real}
-    particles::Vector{Vector{Real}}
+    particles::Vector{Vector{Particle}}
 end
 
 function FilterHistory(p::Filter)
@@ -219,9 +219,22 @@ function update!(p::Filter;resample=systematic_resampling!)
 end
 
 function update_history!(History::FilterHistory,p::Filter)
-    push!(History.T,[p.T])
-    push!(History.particles,[p.particles])
+    push!(History.T,p.T)
+    push!(History.particles,p.particles)
 end
 
+function run_filter!(p::Filter)
+    History = FilterHistory(p)
+    while p.T < nrow(p.Measurements)
+        update!(p)
+        update_history!(History,p)
+    end
+    return History
+end
+
+import Base.getindex
+function getindex(H::FilterHistory,N::Int64)
+    return H.T[N],H.particles[N]
+end
 
 end # module ParticleFilter
