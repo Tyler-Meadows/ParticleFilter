@@ -218,11 +218,20 @@ function update!(p::Filter;resample=systematic_resampling!)
     nothing
 end
 
+"""
+    update_history!(History::FilterHistory,p::Filter)
+Adds the current state of the particle filter to the filter history.
+"""
 function update_history!(History::FilterHistory,p::Filter)
     push!(History.T,p.T)
     push!(History.particles,p.particles)
 end
 
+"""
+    run_filter!(p::Filter)
+updates the filter so that T is equal to the number of rows in the measurements dataframe. 
+Returns a FilterHistory
+"""
 function run_filter!(p::Filter)
     History = FilterHistory(p)
     while p.T < nrow(p.Measurements)
@@ -232,9 +241,25 @@ function run_filter!(p::Filter)
     return History
 end
 
+"""
+    loglikelihood(H::FilterHistory)
+Computes an estimate of the log likelihood of the filter.
+"""
+function loglikelihood(H::FilterHistory)
+    ℒ = Float64[]
+    for state in H.particles
+        ℓ = mean[p.weight for p in state]
+        push!(ℒ,ℓ)
+    end
+    return sum(log.(ℒ))
+end
+
+
 import Base.getindex
 function getindex(H::FilterHistory,N::Int64)
     return H.T[N],H.particles[N]
 end
+
+
 
 end # module ParticleFilter
