@@ -8,6 +8,7 @@ module ParticleFilter
 export Particle, Filter
 export update!, average_particle
 export FilterHistory, run_filter!
+export loglikelihood
 # Required packages
 using Distributions
 using DataFrames
