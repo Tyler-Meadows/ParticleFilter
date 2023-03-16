@@ -8,7 +8,7 @@ module ParticleFilter
 export Particle, Filter
 export update!, average_particle
 export FilterHistory, run_filter!
-export loglikelihood
+export log_likelihood
 # Required packages
 using Distributions
 using DataFrames
@@ -158,7 +158,7 @@ function multinomial_sampling!(p::Filter)
         u = Uniform(0.0,1.0) |> rand
         m = findfirst(x->x>u,Q)
         isnothing(m) && (m=N_particles)
-        push!(new_samples, Particle(p.particles[m]))
+        push!(new_samples, deepcopy(p.particles[m]))
     end
     p.particles .= new_samples
 end
@@ -179,7 +179,7 @@ function systematic_resampling!(p::Filter)
     for Uj in U
         m = findfirst(Uj.<Q)
         isnothing(m) && (m =N_particles) 
-        push!(new_samples,Particle(p.particles[m]))
+        push!(new_samples,deepcopy(p.particles[m]))
     end
     p.particles .= new_samples
 end
@@ -225,7 +225,7 @@ Adds the current state of the particle filter to the filter history.
 """
 function update_history!(History::FilterHistory,p::Filter)
     push!(History.T,p.T)
-    push!(History.particles,p.particles)
+    push!(History.particles,deepcopy(p.particles))
 end
 
 """
@@ -242,14 +242,16 @@ function run_filter!(p::Filter)
     return History
 end
 
+
+
 """
-    loglikelihood(H::FilterHistory)
+    likelihood(H::FilterHistory)
 Computes an estimate of the log likelihood of the filter.
 """
-function loglikelihood(H::FilterHistory)
+function log_likelihood(H::FilterHistory)
     ℒ = Float64[]
     for state in H.particles
-        ℓ = mean[p.weight for p in state]
+        ℓ = mean([p.weight for p in state])
         push!(ℒ,ℓ)
     end
     return sum(log.(ℒ))
@@ -261,6 +263,60 @@ function getindex(H::FilterHistory,N::Int64)
     return H.T[N],H.particles[N]
 end
 
+"""
+    varypars!(p::Filter,V::Vector{Distribution})
+
+For the iterated filtering algorithm.
+"""
+function varypars!(p::Filter, V::Vector{Float64}; Dist = MvNormal)
+    @assert length(p.particles[1].pars) == length(V)
+    for part in p.particles
+        setfield!(part,:pars, (;zip(keys(part.pars),Dist([values(part.pars)...],V)|>rand)...))
+    end
+end
+
+"""
+    iterated_filtering(p::Filter,)
+
+Implements an iterated particle filter, which varies the parameters
+along with the state variables to try to converge to parameters that
+give the maximum log likelihood. 
+
+Returns parameters
+"""
+function iterated_filtering!(p::Filter,
+                            init_filter::Function,
+                            N_particles::Int64,
+                            M_iterations::Int64,
+                            init_parameters,
+                            statistical_parameters,
+                            cooling_fraction::Float64,
+                            randomwalk_σ::Vector{Float64},
+                            ;Dist = MvNormal,
+                            Track_Likelihood = false)
+        Track_Likelihood && (ℒ = [])
+        for m in 1:M_iterations
+            p.T = 1
+            init_filter(p,N_particles,init_parameters,statistical_parameters)
+            varypars!(p,randomwalk_σ;Dist=Dist)
+            if Track_Likelihood
+                History = FilterHistory(p)
+            end
+            while p.T < nrow(p.Measurements)
+                update!(p)
+                varypars!(p,randomwalk_σ;Dist=Dist)
+                update_history!(History,p)
+            end
+            init_parameters = average_particle(p).pars
+            randomwalk_σ = randomwalk_σ*cooling_fraction^(2*m/50)
+            Track_Likelihood && push!(ℒ,log_likelihood(History))
+        end
+    if Track_Likelihood
+        return average_particle(p).pars, ℒ
+    else    
+        return average_particle(p).pars
+    end 
+end
 
 
 end # module ParticleFilter
