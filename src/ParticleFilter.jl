@@ -8,7 +8,7 @@ module ParticleFilter
 export Particle, Filter
 export update!, average_particle
 export FilterHistory, run_filter!
-export log_likelihood
+export log_likelihood, iterated_filtering!
 # Required packages
 using Distributions
 using DataFrames
@@ -47,11 +47,12 @@ end
  * DynamicModel - An inplace function that mutates a particle
 """
 mutable struct Filter
-    T::Real
+    T::Real 
     particles::Vector{Particle}
     Measurements::DataFrame
     MeasurementModel::Function
     DynamicModel::Function
+    init_filter::Function
 end
 
 """
@@ -195,9 +196,13 @@ needs_resampling(p::Filter) = true
 Normalize the weights"""
 function normalize_weights!(p::Filter)
     sum_weights = [w.weight for w in p.particles] |> sum
+    if sum_weights < 1e-14
+        p.init_filter(p)
+    else    
         for w in p.particles
             w.weight /= sum_weights
         end
+    end
 end
 
 """ 
@@ -209,13 +214,13 @@ weights are normalized so that they sum to 1, and then particles are resampled f
 distribution.
 """
 function update!(p::Filter;resample=systematic_resampling!)
+    p.T +=1
     @Threads.threads for part in p.particles
         propogate_sample!(p,part)
         update_likelihood!(p,part)
     end
     normalize_weights!(p)
     needs_resampling(p) && resample(p)
-    p.T +=1
     nothing
 end
 
