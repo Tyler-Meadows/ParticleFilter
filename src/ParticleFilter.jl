@@ -138,7 +138,7 @@ function percentile_sampling!(p::Filter,Virus;q=0.1)
     for j in (length(p.particles)+1):p.N
         m = findfirst(x->x<rand(),Q)
         m == nothing && (m=length(weights))
-        push!(p.particles, p.particles[m])
+        push!(p.particles, deep_copy(p.particles[m]))
     end
 end
 
@@ -196,7 +196,7 @@ needs_resampling(p::Filter) = true
 Normalize the weights"""
 function normalize_weights!(p::Filter)
     sum_weights = [w.weight for w in p.particles] |> sum
-    if sum_weights < 1e-14
+    if sum_weights < 1e-10
         p.init_filter(p)
     else    
         for w in p.particles
@@ -302,7 +302,11 @@ function iterated_filtering!(p::Filter,
         Track_Likelihood && (ℒ = [])
         for m in 1:M_iterations
             p.T = 1
-            init_filter(p,N_particles,init_parameters,statistical_parameters)
+            if m == 1
+                init_filter(p,N_particles,init_parameters,statistical_parameters)
+            else
+                init_filter(p)
+            end
             varypars!(p,randomwalk_σ;Dist=Dist)
             if Track_Likelihood
                 History = FilterHistory(p)
@@ -310,11 +314,11 @@ function iterated_filtering!(p::Filter,
             while p.T < nrow(p.Measurements)
                 update!(p)
                 varypars!(p,randomwalk_σ;Dist=Dist)
-                update_history!(History,p)
+                Track_Likelihood && update_history!(History,p)
             end
-            init_parameters = average_particle(p).pars
-            randomwalk_σ = randomwalk_σ*cooling_fraction^(2*m/50)
             Track_Likelihood && push!(ℒ,log_likelihood(History))
+            normalize_weights!(p)
+            randomwalk_σ = randomwalk_σ*cooling_fraction^(2*m/50)
         end
     if Track_Likelihood
         return average_particle(p).pars, ℒ
