@@ -69,7 +69,8 @@ end
 
 """
     average_particle(p::Filter)
-Determines the average particle from given particle filter"""
+Determines the average particle from given particle filter
+"""
 function average_particle(p::Filter)
     sum_weights = [p.weight for p in p.particles] |> sum
     avg_state = ones(size(p.particles[1].state))
@@ -85,6 +86,7 @@ Find the average of the parameters
 """
 function avg_pars(p::Filter)
     weights = [par.weight for par in p.particles]
+    weights = weights/(sum(weights))
     vals = sum(weights.*([values(p.pars)...] for p in p.particles))
     🔑 = keys(p.particles[1].pars)
     return (; zip(🔑,vals)...)
@@ -92,7 +94,8 @@ end
 
 """
     max_weight(p::Filter)
-Return the particle with the highest weight"""
+Return the particle with the highest weight
+"""
 max_weight(p::Filter) = Base.maximum([w.weight for w in p.particles])
 
 """
@@ -107,7 +110,8 @@ end
 
 """
     update_likelihood!(p::filter,sample::particle)
-Changes the weight of the particle to its likelihood according to the measurement model"""
+Changes the weight of the particle to its likelihood according to the measurement model
+"""
 function update_likelihood!(p::Filter,sample::Particle)
     sample.weight = p.MeasurementModel(p.Measurements[p.T,:],sample)
 end
@@ -116,7 +120,8 @@ end
 
 """
     quant(particle_filter,q::Float64)
-Determines the weight that separates the particles into two groups"""
+Determines the weight that separates the particles into two groups
+"""
 function quant(p::Filter,q)
     tmp = [w.weight for w in p.particles]
     quantile(tmp,q)
@@ -148,7 +153,8 @@ end
 
 Resamples particles using a multinomial sampling procedure.
 If n is the number of particles, then this draws n samples from a multinomial distribution defined
-using the weights of the particles"""
+using the weights of the particles
+"""
 function multinomial_sampling!(p::Filter)
     N_particles = length(p.particles)
     weights = [w.weight for w in p.particles]
@@ -193,7 +199,8 @@ needs_resampling(p::Filter) = true
 
 """
     normalize_weights(p::Filter)
-Normalize the weights"""
+Normalize the weights
+"""
 function normalize_weights!(p::Filter)
     sum_weights = [w.weight for w in p.particles] |> sum
     if sum_weights < 1e-10
