@@ -86,7 +86,7 @@ Find the average of the parameters
 """
 function avg_pars(p::Filter)
     weights = [par.weight for par in p.particles]
-    weights = weights/(sum(weights))
+    weights = weights./sum(weights)
     vals = sum(weights.*([values(p.pars)...] for p in p.particles))
     🔑 = keys(p.particles[1].pars)
     return (; zip(🔑,vals)...)
