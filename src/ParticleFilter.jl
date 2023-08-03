@@ -74,7 +74,7 @@ Determines the average particle from given particle filter
 function average_particle(p::Filter)
     sum_weights = [p.weight for p in p.particles] |> sum
     avg_state = ones(size(p.particles[1].state))
-    for i in 1:length(avg_state)
+    for i in 1:eachindex(avg_state)
         avg_state[i] = [w.weight/sum_weights * w.state[i] for w in p.particles] |> sum
     end
     return Particle(1.0,avg_state,avg_pars(p),p.particles[1].stats_pars)
@@ -142,7 +142,7 @@ function percentile_sampling!(p::Filter,Virus;q=0.1)
     Q = cumsum(weights)
     for j in (length(p.particles)+1):p.N
         m = findfirst(x->x<rand(),Q)
-        m == nothing && (m=length(weights))
+        m === nothing && (m=length(weights))
         push!(p.particles, deep_copy(p.particles[m]))
     end
 end
