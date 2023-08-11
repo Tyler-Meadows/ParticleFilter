@@ -203,7 +203,7 @@ Normalize the weights
 """
 function normalize_weights!(p::Filter)
     sum_weights = [w.weight for w in p.particles] |> sum
-    if sum_weights < 1e-10
+    if sum_weights == 0.0
         p.init_filter(p)
     else    
         for w in p.particles
@@ -333,6 +333,5 @@ function iterated_filtering!(p::Filter,
         return average_particle(p).pars
     end 
 end
-
 
 end # module ParticleFilter
