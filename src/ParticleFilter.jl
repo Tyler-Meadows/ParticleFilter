@@ -74,7 +74,7 @@ Determines the average particle from given particle filter
 function average_particle(p::Filter)
     sum_weights = [p.weight for p in p.particles] |> sum
     avg_state = ones(size(p.particles[1].state))
-    for i in 1:eachindex(avg_state)
+    for i in eachindex(avg_state)
         avg_state[i] = [w.weight/sum_weights * w.state[i] for w in p.particles] |> sum
     end
     return Particle(1.0,avg_state,avg_pars(p),p.particles[1].stats_pars)
@@ -203,13 +203,13 @@ Normalize the weights
 """
 function normalize_weights!(p::Filter)
     sum_weights = [w.weight for w in p.particles] |> sum
-    if sum_weights == 0.0
-        p.init_filter(p)
-    else    
+#    if sum_weights < 1e-20
+#        p.init_filter(p)
+#    else    
         for w in p.particles
             w.weight /= sum_weights
         end
-    end
+#    end
 end
 
 """ 
@@ -333,5 +333,6 @@ function iterated_filtering!(p::Filter,
         return average_particle(p).pars
     end 
 end
+
 
 end # module ParticleFilter
