@@ -264,9 +264,9 @@ function log_likelihood(H::FilterHistory)
     ℒ = Float64[]
     for state in H.particles
         ℓ = mean([p.weight for p in state])
-        push!(ℒ,ℓ)
+        push!(ℒ,log(ℓ))
     end
-    return sum(log.(ℒ))
+    return sum(ℒ)
 end
 
 
