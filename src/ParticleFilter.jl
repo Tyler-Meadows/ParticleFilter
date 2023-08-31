@@ -81,6 +81,19 @@ function average_particle(p::Filter)
 end
 
 """
+    average_particle(p::Vector{Particle})
+Find the average particle from a vector of particles
+"""
+function average_particle(p::Vector{Particle})
+    sum_weights = [part.weight for part in p]
+    avg_state = ones(size(p[1].state))
+    for i in eachindex(p)
+        avg_state[i] = [w.weight/sum_weights *w.state[i] for w in p] |> sum
+    end
+    return Particle(sum_weights,avg_state,avg_pars(p),p[1].stats_pars)
+end
+
+"""
     avg_pars(p::Filter)
 Find the average of the parameters
 """
@@ -89,6 +102,19 @@ function avg_pars(p::Filter)
     weights = weights./sum(weights)
     vals = sum(weights.*([values(p.pars)...] for p in p.particles))
     🔑 = keys(p.particles[1].pars)
+    return (; zip(🔑,vals)...)
+end
+
+"""
+    avg_pars(p::Vector{Particle})
+Compute the average parameters from a vector of particles
+"""
+
+function avg_pars(p::Vector{Particle})
+    weights = [par.weight for par in p]
+    weights = weights./sum(weights)
+    vals = sum(weights.*([values(par.pars)...] for par in p))
+    🔑 = keys(p.particls[1].pars)
     return (; zip(🔑,vals)...)
 end
 
