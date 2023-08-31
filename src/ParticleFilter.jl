@@ -352,6 +352,7 @@ function iterated_filtering!(p::Filter,
             normalize_weights!(p)
             randomwalk_σ = randomwalk_σ*cooling_fraction^(2*m/50)
             print("Iteration $m of $M_iterations \r")
+        end
     if Track_Likelihood
         return average_particle(p).pars, ℒ
     else    
