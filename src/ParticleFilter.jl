@@ -85,9 +85,9 @@ end
 Find the average particle from a vector of particles
 """
 function average_particle(p::Vector{Particle})
-    sum_weights = [part.weight for part in p]
+    sum_weights = [part.weight for part in p] |> sum
     avg_state = ones(size(p[1].state))
-    for i in eachindex(p)
+    for i in eachindex(avg_state)
         avg_state[i] = [w.weight/sum_weights *w.state[i] for w in p] |> sum
     end
     return Particle(sum_weights,avg_state,avg_pars(p),p[1].stats_pars)
