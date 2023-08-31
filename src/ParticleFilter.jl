@@ -109,12 +109,11 @@ end
     avg_pars(p::Vector{Particle})
 Compute the average parameters from a vector of particles
 """
-
 function avg_pars(p::Vector{Particle})
     weights = [par.weight for par in p]
     weights = weights./sum(weights)
     vals = sum(weights.*([values(par.pars)...] for par in p))
-    🔑 = keys(p.particls[1].pars)
+    🔑 = keys(p[1].pars)
     return (; zip(🔑,vals)...)
 end
 
@@ -229,13 +228,13 @@ Normalize the weights
 """
 function normalize_weights!(p::Filter)
     sum_weights = [w.weight for w in p.particles] |> sum
-#    if sum_weights < 1e-20
-#        p.init_filter(p)
-#    else    
+ #    if sum_weights < 1e-20
+ #        p.init_filter(p)
+ #    else    
         for w in p.particles
             w.weight /= sum_weights
         end
-#    end
+ #    end
 end
 
 """ 
