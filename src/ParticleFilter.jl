@@ -296,8 +296,8 @@ end
 
 
 import Base.getindex
-function getindex(H::FilterHistory,N::Int64)
-    return H.T[N],H.particles[N]
+function getindex(H::FilterHistory,N::UnitRange)
+    return FilterHistory(H.T[N],H.particles[N])
 end
 
 """
