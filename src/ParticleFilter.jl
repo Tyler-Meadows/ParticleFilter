@@ -245,6 +245,7 @@ function normalize_weights!(p::Filter)
     sum_weights = [w.weight for w in p.particles] |> sum
      if sum_weights < 1e-20
          reinitialize!(p)
+         print("Filter has diverged. Reinitializing.\n")
      else    
         for w in p.particles
             w.weight /= sum_weights
