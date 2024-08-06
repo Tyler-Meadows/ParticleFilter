@@ -68,6 +68,21 @@ function FilterHistory(p::Filter)
 end
 
 """
+    reinitialize!(p::Filter)
+    Restarts the particle filter in the case that the filter
+    deviates too much from predictions. 
+
+"""
+function reinitialize!(p::Filter)
+    N = length(p.Particles)
+    stats_pars = p.Particles[1].stats_pars
+    pars = avg_pars(p)
+    p.init_filter(p,
+                  N,
+                  pars,
+                  stats_pars)
+end
+"""
     average_particle(p::Filter)
 Determines the average particle from given particle filter
 """
@@ -228,13 +243,13 @@ Normalize the weights
 """
 function normalize_weights!(p::Filter)
     sum_weights = [w.weight for w in p.particles] |> sum
- #    if sum_weights < 1e-20
- #        p.init_filter(p)
- #    else    
+     if sum_weights < 1e-20
+         reinitialize!(p)
+     else    
         for w in p.particles
             w.weight /= sum_weights
         end
- #    end
+    end
 end
 
 """ 
@@ -298,6 +313,9 @@ end
 import Base.getindex
 function getindex(H::FilterHistory,N::UnitRange)
     return FilterHistory(H.T[N],H.particles[N])
+end
+function getindex(H::FilterHistory,N::Int)
+    return FilterHistory([H.T[N]],[H.particles[N]])
 end
 
 """
