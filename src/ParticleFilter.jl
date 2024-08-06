@@ -114,7 +114,7 @@ Find the average of the parameters
 """
 function avg_pars(p::Filter)
     weights = [par.weight for par in p.particles]
-    if weights > 1e-20
+    if sum(weights) > 1e-20
         weights = weights./sum(weights)
     else
         weights = ones(size(weights))./length(weights)
@@ -130,7 +130,7 @@ Compute the average parameters from a vector of particles
 """
 function avg_pars(p::Vector{Particle})
     weights = [par.weight for par in p] 
-    if weights > 1e-20
+    if sum(weights) > 1e-20
         weights = weights./sum(weights)
     else
         weights = ones(size(weights))./length(weights)
