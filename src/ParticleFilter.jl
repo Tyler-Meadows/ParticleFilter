@@ -114,7 +114,11 @@ Find the average of the parameters
 """
 function avg_pars(p::Filter)
     weights = [par.weight for par in p.particles]
-    weights = weights./sum(weights)
+    if weights != 0.0
+        weights = weights./sum(weights)
+    else
+        weights = ones(size(weights))./length(weights)
+    end
     vals = sum(weights.*([values(p.pars)...] for p in p.particles))
     🔑 = keys(p.particles[1].pars)
     return (; zip(🔑,vals)...)
@@ -125,8 +129,12 @@ end
 Compute the average parameters from a vector of particles
 """
 function avg_pars(p::Vector{Particle})
-    weights = [par.weight for par in p]
-    weights = weights./sum(weights)
+    weights = [par.weight for par in p] 
+    if weights != 0.0
+        weights = weights./sum(weights)
+    else
+        weights = ones(size(weights))./length(weights)
+    end
     vals = sum(weights.*([values(par.pars)...] for par in p))
     🔑 = keys(p[1].pars)
     return (; zip(🔑,vals)...)
@@ -241,9 +249,9 @@ needs_resampling(p::Filter) = true
     normalize_weights(p::Filter)
 Normalize the weights
 """
-function normalize_weights!(p::Filter)
+function normalize_weights!(p::Filter; restart = true)
     sum_weights = [w.weight for w in p.particles] |> sum
-     if sum_weights < 1e-20
+     if (sum_weights < 1e-20)&(restart)
          reinitialize!(p)
          print("Filter has diverged. Reinitializing.\n")
      else    
@@ -261,13 +269,13 @@ the dynamic model, and their weights updated using the measurement model. The pa
 weights are normalized so that they sum to 1, and then particles are resampled from a multinomial
 distribution.
 """
-function update!(p::Filter;resample=systematic_resampling!)
+function update!(p::Filter;resample=systematic_resampling!,restart=true)
     p.T +=1
     @Threads.threads for part in p.particles
         propogate_sample!(p,part)
         update_likelihood!(p,part)
     end
-    normalize_weights!(p)
+    normalize_weights!(p;restart)
     needs_resampling(p) && resample(p)
     nothing
 end
@@ -368,7 +376,7 @@ function iterated_filtering!(p::Filter,
                 Track_Likelihood && update_history!(History,p)
             end
             Track_Likelihood && push!(ℒ,log_likelihood(History))
-            normalize_weights!(p)
+            normalize_weights!(p;restart=false)
             randomwalk_σ = randomwalk_σ*cooling_fraction^(2*m/50)
             print("Iteration $m of $M_iterations \r")
         end
