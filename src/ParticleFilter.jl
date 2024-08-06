@@ -74,8 +74,8 @@ end
 
 """
 function reinitialize!(p::Filter)
-    N = length(p.Particles)
-    stats_pars = p.Particles[1].stats_pars
+    N = length(p.particles)
+    stats_pars = p.particles[1].stats_pars
     pars = avg_pars(p)
     p.init_filter(p,
                   N,
